@@ -108,10 +108,15 @@ class TravianBot:
 
     def saveConfig(self):
         config = configparser.ConfigParser()
+        selectedCheckboxStr = ''
+        for index, checkbox in enumerate(self.checkbox_vars):
+            if checkbox.get() == 1:
+                selectedCheckboxStr = self.confiGUI.nametowidget(str(self.checkboxes[index])).cget("text")
         with open('config.ini', 'w') as f:
             config.add_section('main')
             config.set('main', 'username', str(self.loginEntryVar.get()))
             config.set('main', 'password', str(self.strPassword.get()))
+            config.set('main', 'resource_preference', str(selectedCheckboxStr))
             config.write(f)
 
         self.confiGUI.withdraw()
