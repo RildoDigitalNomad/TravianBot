@@ -13,7 +13,11 @@ class TravianBot:
     def __init__(self):
         self.villageLst = []
         self.root = Tk()
-        self.app = MainWindow(self.root)
+        chrome_options = Options()
+        #chrome_options.add_argument("--headless")
+        chrome_options.add_experimental_option("detach", True)
+        self.mainDriver = webdriver.Chrome(options=chrome_options)
+        self.app = MainWindow(self.root, self.mainDriver)
         self.label_text = StringVar()
         self.loading_screen = LoadingScreen(self.root, self.label_text)
     def getLoguinConf(self):
@@ -64,6 +68,12 @@ class TravianBot:
     def startApplication(self):
 
         if self.hasConfigMain():
+            #v1 = Village('Santos', 100, 100, 100, 100)
+            #v2 = Village('Itapema', 100, 100, 100, 100)
+            #self.villageLst.append(v1)
+            #self.villageLst.append(v2)
+            #self.villageLst = ['Santos', 'Itapema']
+            self.app.initMainGui(self.villageLst)
             result_queue = Queue()
             worker_thread = threading.Thread(target=self.startTravianBoot, args=(result_queue,))
             worker_thread.start()
@@ -128,6 +138,7 @@ class TravianBot:
         btnConfig = Button(content, text="Village Settings", fg="black", command=self.init_ConfigGui).grid(row=0, column=1)
         btnStart = Button(footer, text="Start", fg="black", command=self.startTravianBoot).grid(row=0, column=0)
 
+
         root.mainloop()
 
     def on_select(self, event, picklist):
@@ -157,24 +168,22 @@ class TravianBot:
         self.loading_screen.close()
         self.app.initMainGui(self.villageLst)
         self.app.deiconify()
+
+
     def startTravianBoot(self, queue) :
         self.update_label(self.label_text, "Starting Bot")
         villages = []
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_experimental_option("detach", True)
-        browser = webdriver.Chrome(options=chrome_options)
         self.update_label(self.label_text, "Opening Travian web page")
-        browser.get('https://es2.kingdoms.com/#/page:village/window:welcomeScreen')
+        self.mainDriver.get('https://es2.kingdoms.com/#/page:village/window:welcomeScreen')
         self.update_label(self.label_text, "Finished to load home page")
         self.update_label(self.label_text, "Trying to get Reject Cockie")
         rejectCockie = None
         rejAttemp = 0
         while rejectCockie == None:
             if rejAttemp > 2:
-                browser.refresh()
+                self.mainDriver.refresh()
             try:
-                rejectCockie = WebDriverWait(browser, 20).until(
+                rejectCockie = WebDriverWait(self.mainDriver, 20).until(
                     EC.presence_of_element_located((By.XPATH, '//html/body/div[1]/div[1]/div[2]/span[1]/a')))
                 rejectCockie.click()
             except Exception as e:
@@ -190,20 +199,20 @@ class TravianBot:
         mailAtt = 0
         while mailTxt == None:
             if mailAtt == 2:
-                browser.refresh()
+                self.mainDriver.refresh()
             try:
-                iframe = WebDriverWait(browser, 20).until(EC.presence_of_element_located(
+                iframe = WebDriverWait(self.mainDriver, 20).until(EC.presence_of_element_located(
                     (By.XPATH, '//html/body/div[5]/div/table/tbody/tr/td/div/div/iframe')))
 
-                browser.switch_to.frame(iframe)
+                self.mainDriver.switch_to.frame(iframe)
 
-                title = WebDriverWait(browser, 5).until(
+                title = WebDriverWait(self.mainDriver, 5).until(
                     EC.presence_of_element_located((By.XPATH, '//html/head/title')))
 
                 iframe2 = WebDriverWait(title, 10).until(
                     EC.presence_of_element_located((By.XPATH, '//html/body/iframe')))
-                browser.switch_to.frame(iframe2)
-                mailTxt = WebDriverWait(browser, 2).until(
+                self.mainDriver.switch_to.frame(iframe2)
+                mailTxt = WebDriverWait(self.mainDriver, 2).until(
                     EC.presence_of_element_located((By.XPATH, '//html/body/div[1]/form/div[1]/input')))
             except Exception as e:
                 mailAtt += 1
@@ -213,9 +222,9 @@ class TravianBot:
         self.update_label(self.label_text, "Got Username text entry")
         self.update_label(self.label_text, "Now getting password text entry")
 
-        passwordTxt = WebDriverWait(browser, 20).until(
+        passwordTxt = WebDriverWait(self.mainDriver, 20).until(
             EC.presence_of_element_located((By.XPATH, '//html/body/div[1]/form/div[2]/input')))
-        loginBtn = WebDriverWait(browser, 20).until(
+        loginBtn = WebDriverWait(self.mainDriver, 20).until(
             EC.presence_of_element_located((By.XPATH, '//html/body/div[1]/form/div[3]/input')))
 
         self.update_label(self.label_text, "Everything fine, now input username and password")
@@ -228,8 +237,8 @@ class TravianBot:
         self.update_label(self.label_text, "Login clicked")
         self.update_label(self.label_text, "Now click to enter world game")
 
-        browser.switch_to.default_content()
-        continuePlayBtn = WebDriverWait(browser, 20).until(
+        self.mainDriver.switch_to.default_content()
+        continuePlayBtn = WebDriverWait(self.mainDriver, 20).until(
             EC.presence_of_element_located(
                 (By.XPATH, '//html/body/div[2]/div/div[4]/div[2]/div/div[2]/div/div[3]/div[3]/div/div/button')))
         continuePlayBtn.click()
@@ -239,10 +248,10 @@ class TravianBot:
         erAtt = 0
         while er:
             if erAtt == 2:
-                browser.refresh()
+                self.mainDriver.refresh()
                 erAtt = 0
             try:
-                villagesOverView = WebDriverWait(browser, 120).until(
+                villagesOverView = WebDriverWait(self.mainDriver, 120).until(
                     EC.presence_of_element_located((By.XPATH, '//html/body/div[3]/header/div[3]/div/div[2]/a[3]/i')))
                 villagesOverView.click()
                 er = False
@@ -253,21 +262,64 @@ class TravianBot:
 
         self.update_label(self.label_text, "Agora abrir a tabela com as aldeias")
 
-        table = WebDriverWait(browser, 15).until(EC.presence_of_element_located(
-            (By.XPATH, '//html/body/div[3]/window[2]/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/table/tbody')))
-        #
+        resourcesA = WebDriverWait(self.mainDriver, 120).until(
+                    EC.presence_of_element_located((By.XPATH, '//html/body/div[3]/window/div/div/div[4]/div/nav/a[2]')))
+        resourcesA.click()
+        table = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH, '//html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div[2]/div/table/tbody')))
+                        #/html/body/div[3]/window[2]/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/table
+                        #/html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div[2]/div/table/tbody
+
         trs = WebDriverWait(table, 15).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
         for row in trs:
             tds = WebDriverWait(row, 25).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'td')))
-            aT = ''
-            while aT == '':
+            villageName = ''
+            villageWood = ''
+            villageClay = ''
+            villageIron = ''
+            villageCroop = ''
+            while villageName == '':
                 try:
                     a = WebDriverWait(tds[0], 25).until(EC.presence_of_element_located((By.TAG_NAME, 'a')))
-                    aT = a.text
+                    villageName = a.text
                 except Exception as e:
-                    print('quebraria aqui a leitura do a')
-            villages.append(aT)
-        print(villages)
+                    print('quebraria aqui a leitura do village name')
+            #read village wood
+            while villageWood == '':
+                try:
+                    villageWood = tds[1].text
+                except Exception as e:
+                    print('quebraria aqui a leitura do village wood')
+            # read village Clay
+            while villageClay == '':
+                try:
+                    villageClay = tds[2].text
+                except Exception as e:
+                    print('quebraria aqui a leitura do village clay')
+            # read village Iron
+            while villageIron == '':
+                try:
+                    villageIron = tds[3].text
+                except Exception as e:
+                    print('quebraria aqui a leitura do village iron')
+            # read village Croop
+            while villageCroop == '':
+                try:
+                    villageCroop = tds[4].text
+                except Exception as e:
+                    print('quebraria aqui a leitura do village croop')
+            villages.append(Village(villageName, villageWood, villageClay, villageIron, villageCroop))
+
+        resourcesTab = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH, '//html/body/div[3]/window[2]/div/div/div[4]/div/nav/a[2]/div/span/span')))
+        resourcesTab.click()
+
+        resourcesTable = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH,
+             '//html/body/div[3]/window[2]/div/div/div[4]/div/div/div[1]/div/div/div/div/div[2]/div/table/tbody')))
+        resourcesTrs = WebDriverWait(resourcesTable, 15).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
+        for row in resourcesTrs:
+            tds = WebDriverWait(row, 25).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'td')))
         queue.put(villages)
 
     def init_LoginGuiT(self):
@@ -415,10 +467,13 @@ class TravianBot:
 
 
 class MainWindow:
-    def __init__(self, master):
+    def __init__(self, master, mainDriver):
         self.master = master
         self.master.title("Main Window")
-
+        self.mainDriver = mainDriver
+    def quit_application(self):
+        self.master.quit()
+        self.mainDriver.quit()
     def withdraw(self):
         self.master.withdraw()
 
@@ -438,53 +493,86 @@ class MainWindow:
             self.master.deiconify()
     def initMainGui(self, villages):
         self.master.title("TravianBot")
-        self.master.geometry("300x300")
+        self.master.geometry("400x400")
         self.master.resizable(0, 0)
         self.master.pack_propagate(0)
-        header = Frame(self.master)
+        header = Frame(self.master, highlightbackground="black", highlightcolor="black", highlightthickness=1)
         content = Frame(self.master)
-        footer = Frame(self.master)
+        contentR = Frame(content, highlightbackground="black", highlightcolor="black", highlightthickness=1)
+        contentL = Frame(content, highlightbackground="black", highlightcolor="black", highlightthickness=1)
+        footer = Frame(self.master, highlightbackground="black", highlightcolor="black", highlightthickness=1)
 
-        self.master.columnconfigure(0, weight=1)
-        self.master.rowconfigure(0, weight=1)
+        self.master.columnconfigure(0, weight=10)
+        self.master.rowconfigure(0, weight=2)
         self.master.rowconfigure(1, weight=6)
         self.master.rowconfigure(2, weight=2)
-        self.master.rowconfigure(3, weight=1)
 
-        header.grid(row=0, sticky='news')
-        header.columnconfigure(0, weight=3)
-        header.rowconfigure(0, weight=1)
+
+        header.grid(row=0, column=0, sticky='news')
+        header.columnconfigure(0, weight=10)
+        header.rowconfigure(0, weight=2)
 
         content.grid(row=1, sticky='news')
         content.columnconfigure(0, weight=5)
         content.columnconfigure(1, weight=5)
-        content.rowconfigure(0, weight=2)
-        content.rowconfigure(1, weight=2)
-        content.rowconfigure(2, weight=2)
-        content.rowconfigure(3, weight=2)
-        content.rowconfigure(4, weight=2)
+        content.rowconfigure(0, weight=10)
 
-        footer.grid(row=3, sticky='news')
+        contentL.grid(row=0, column=0, sticky='news')
+        contentL.rowconfigure(0, weight=2)
+        contentL.rowconfigure(1, weight=8)
+        contentL.columnconfigure(0, weight=0)
+
+        contentR.grid(row=0, column=1, sticky='news')
+        contentR.columnconfigure(0, weight=5)
+        contentR.rowconfigure(0, weight=2)
+        contentR.rowconfigure(1, weight=2)
+        contentR.rowconfigure(2, weight=2)
+        contentR.rowconfigure(3, weight=2)
+
+        #content.rowconfigure(2, weight=2)
+        #content.rowconfigure(3, weight=2)
+        #content.rowconfigure(4, weight=2)
+
+        footer.grid(row=2, sticky='news')
         footer.columnconfigure(0, weight=3)
         footer.rowconfigure(0, weight=1)
 
         items = ["Item 1", "Item 2", "Item 3", "Item 4", "Item 5"]
 
-        lblVillages = Label(content, text='Villages ').grid(row=2, column=0)
-        picklist = Listbox(content, selectmode=SINGLE)
-        picklist.grid(row=3, column=0)
-        selected_option = StringVar()
-        selected_option.set('A ver')
-        dropdown = OptionMenu(content, selected_option, "Option 1", "Option 2", "Option 3", "Option 4").grid(row=3,
-                                                                                                             column=1)
+        lblVillages = Label(contentL, text='Villages')
+        lblVillages.grid(row=0, column=0, padx=0, pady=0)
+        #print(lblVillages.winfo_width())
+        #print(lblVillages.winfo_height())
+
+        picklist = Listbox(contentL, selectmode=SINGLE)
+        picklist.grid(row=1, column=0)
+        lblWood = Label(contentR, text='Wood: ').grid(row=0, column=0)
+        self.lblWoodValue = Label(contentR, text='')
+        self.lblWoodValue.grid(row=0, column=1)
+        ######## ----- dropdown
+        #selected_option = StringVar()
+        #selected_option.set('A ver')
+        #dropdown = OptionMenu(content, selected_option, "Option 1", "Option 2", "Option 3", "Option 4").grid(row=3,
+         #                                                                                                    column=1)
+        ###########
+
         items = ["Item 1", "Item 2", "Item 3", "Item 4", "Item 5"]
         for item in villages:
-            picklist.insert(END, item)
-        picklist.bind("<<ListboxSelect>>", lambda event: self.on_select(event, picklist))
+            #print(item)
+            #print(item.name)
+            #print(item.croop)
+            picklist.insert(END, item.name)
+        picklist.bind("<<ListboxSelect>>", lambda event: self.on_select(event, picklist, villages))
 
-        btnLoginConfig = Button(content, text="Login Settings", fg="black", command=self.callLoginWindow).grid(row=0, column=0)
-        btnConfig = Button(content, text="Village Settings", fg="black").grid(row=0, column=1)
-        btnStart = Button(footer, text="Start", fg="black").grid(row=0, column=0)
+        #btnLoginConfig = Button(header, text="Login Settings", fg="black", command=self.callLoginWindow).grid(row=0, column=0)
+        #btnConfig = Button(header, text="Village Settings", fg="black").grid(row=0, column=1)
+        #btnStart = Button(footer, text="Start", fg="black").grid(row=0, column=0)
+        btnQuit = Button(footer, text="Quit", fg="black", command=self.quit_application).grid(row=0, column=0)
+
+
+    def on_select(self, event, picklist, villages):
+        selected_index = picklist.curselection()[0]
+        self.lblWoodValue.config(text = villages[selected_index].wood)
 
 class LoadingScreen:
     def __init__(self, master, text):
@@ -559,6 +647,16 @@ class LoginWindow:
             return False
 
         return config.has_section('main')
+
+class Village:
+    def __init__(self, name, wood, clay, iron, croop ):
+        self.name = name
+        self.wood = wood
+        self.clay = clay
+        self.iron = iron
+        self.croop = croop
+
+
 def main():
     app = TravianBot().startApplication()
 
