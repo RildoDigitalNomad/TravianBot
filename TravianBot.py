@@ -2,12 +2,21 @@ from tkinter import *
 from tkinter import messagebox
 import configparser
 from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
 import threading
 from queue import Queue
+import time
+from datetime import datetime, timedelta
+import schedule
+import math
+import pandas as pd
+import re
+import json
 
 class TravianBot:
     def __init__(self):
@@ -19,7 +28,7 @@ class TravianBot:
         self.mainDriver = webdriver.Chrome(options=chrome_options)
         self.app = MainWindow(self.root, self.mainDriver)
         self.label_text = StringVar()
-        self.loading_screen = LoadingScreen(self.root, self.label_text)
+        self.loading_screen = LoadingScreen(self.root, self.label_text, self.mainDriver)
     def getLoguinConf(self):
         loginGui = Tk()
         loginGui.title("Login Config")
@@ -65,6 +74,61 @@ class TravianBot:
                                                                                                                 column=0)
         loginGui.mainloop()
 
+    def initFarmList(self):
+        print("Initing farm list")
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        er = True
+        erAtt = 0
+        while er:
+            if erAtt == 2:
+                self.mainDriver.refresh()
+                erAtt = 0
+            try:
+                villagesOverView = WebDriverWait(self.mainDriver, 120).until(
+                    EC.presence_of_element_located((By.XPATH, '//html/body/div[3]/header/div[3]/div/div[2]/a[3]/i')))
+                villagesOverView.click()
+                er = False
+            except Exception as e:
+                erAtt += 1
+                print('Esperando cargar pagina para entrar ao village overview:: ' + str(erAtt))
+        table = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH,
+             '//html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/table/tbody')))
+            # /html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/table/tbody
+        trs = WebDriverWait(table, 15).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
+        villageLink = None
+        for row in trs:
+            tds = WebDriverWait(row, 25).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'td')))
+            villageName = ''
+            while villageName == '':
+                try:
+                    a = WebDriverWait(tds[0], 25).until(EC.presence_of_element_located((By.TAG_NAME, 'a')))
+                    villageName = a.text
+                    if villageName == 'Sampa':
+                        villageLink = a
+                        print('encontrou a aldeia Sampa! Kraio')
+                except Exception as e:
+                    print('quebraria aqui a leitura do village name')
+        villageLink.click()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        new_url = 'https://com1n.kingdoms.com/#/page:village/villId:537804822/location:32/window:building/cp:1'
+        #https://com1n.kingdoms.com/#/page:village/villId:537804822/location:32/window:building/cp:1/tab:FarmList
+        self.mainDriver.execute_script(f"window.location.href = '{new_url}'")
+        farmListTab = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH,
+             '//html/body/div[3]/window/div/div/div[4]/div/nav/a[3]/div/span/span')))
+        farmListTab.click()
+        farmList = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH,
+             '//html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/div/div[2]/div/div/div[1]/div/div[1]/div[1]/div/div/table/tbody/tr[1]/td[1]/div/input')))
+        farmList.click()
+        startRaid = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH,
+             '//html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/div/div[2]/div/div/div[3]/button[2]/div/i[1]')))
+        time.sleep(5)
+        startRaid.click()
     def startApplication(self):
 
         if self.hasConfigMain():
@@ -79,9 +143,237 @@ class TravianBot:
             worker_thread.start()
             self.root.withdraw()
             self.get_queue(result_queue)
+            #self.testScheduleFastBuild()
+            #current_time = time.time()
+                #execution_time = time.mktime((2024, 4, 3, 15, 35, 0, 0, 0, 0))
+            #time_difference = execution_time - current_time
+            #if time_difference > 0:
+            #    timer = threading.Timer(time_difference, self.testScanMap)
+            #    timer.start()
         else:
             self.app.callLoginWindow()
         self.root.mainloop()
+
+    def testScanMap(self):
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        time.sleep(2)
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        time.sleep(2)
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        er = True
+        while er:
+            print('test')
+            try:
+                print('antes de dar pau')
+                overView = WebDriverWait(self.mainDriver, 120).until(
+                    EC.presence_of_element_located((By.XPATH, '//html/body/div[3]/header/div[5]/div/nav/a[3]')))
+                print('achou o overview? como?')
+                print(overView)
+                overView.click()  # open map
+                er = False
+            except OSError as e:
+                print('oxiiiiiii')
+                print(e)
+                print(e.errno)
+                print(e.strerror)
+                time.sleep(10)
+            # error_code = e.errno
+            # print("Error code:", error_code)
+            # self.browser.quit()
+
+        script = """
+        			window.mouseData = {};
+
+        			document.addEventListener("mousemove", function(event) {
+        				// Store the mouse coordinates in the global variable
+        				window.mouseData = { x: event.clientX, y: event.clientY };
+        			});
+        		"""
+        self.browser.execute_script(script)
+
+        # canvas = driver.find_element_by_css_selector("canvas")
+        x = 150
+        y = 150
+        asc = ActionChains(self.browser)
+        asc.send_keys(Keys.ESCAPE).perform()
+        canvas = WebDriverWait(self.browser, 40).until(
+            EC.presence_of_element_located((By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[5]/canvas')))
+        time.sleep(10)
+        action = ActionChains(self.browser)
+        action.move_to_element(canvas).perform()
+        mouse_data = self.browser.execute_script("return window.mouseData;")
+        print(mouse_data)
+        try:
+            coo = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[1]')))
+            print(coo.text)
+            away = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[2]')))
+            print(away.text)
+        except Exception as e:
+            print('nao achou nome de vila')
+
+        print('+ 10 seg de sleep')
+        time.sleep(10)
+        action.move_by_offset(-30, -30).perform()
+        mouse_data = self.browser.execute_script("return window.mouseData;")
+        print(mouse_data)
+        try:
+            coo2 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[1]')))
+            print(coo2.text)
+            away2 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[2]')))
+            print(away2.text)
+        except Exception as e:
+            print('nao achou nome de vila')
+
+        print('passou')
+        time.sleep(10)
+        action.move_by_offset(40, 40).perform()
+        mouse_data = self.browser.execute_script("return window.mouseData;")
+        print(mouse_data)
+        try:
+            coo3 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[1]')))
+            print(coo3.text)
+            away3 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[2]')))
+            print(away3.text)
+        except Exception as e:
+            print('nao achou nome de vila')
+
+        print('passou again')
+        print('mentira que é só isso')
+        time.sleep(10)
+        action.move_by_offset(50, 50).perform()
+        try:
+            coo4 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[1]')))
+            print(coo4.text)
+            away4 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[2]')))
+            print(away4.text)
+        except Exception as e:
+            print('nao achou nome de vila')
+        print('tem que vir agora, 24 11')
+        time.sleep(10)
+        action.move_by_offset(60, 60).perform()
+        try:
+            coo4 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[1]')))
+            print(coo4.text)
+            away4 = WebDriverWait(self.browser, 10).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//html/body/div[3]/div[2]/div[3]/div/div[3]/div[1]/span[2]')))
+            print(away4.text)
+        except Exception as e:
+            print('nao achou nome de vila')
+
+        print('iniciando o test do doble click e arraste')
+        action.click_and_hold().perform()
+        action.move_by_offset(160, 160).perform()
+        action.release().perform()
+
+    def testScheduleFastBuild(self):
+        print('Starting the test to fast buid')
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        er = True
+        erAtt = 0
+        while er:
+            if erAtt == 2:
+                self.mainDriver.refresh()
+                erAtt = 0
+            try:
+                villagesOverView = WebDriverWait(self.mainDriver, 120).until(
+                    EC.presence_of_element_located((By.XPATH, '//html/body/div[3]/header/div[3]/div/div[2]/a[3]/i')))
+                villagesOverView.click()
+                er = False
+            except Exception as e:
+                erAtt += 1
+                print('Esperando cargar pagina para entrar ao village overview:: ' + str(erAtt))
+        table = WebDriverWait(self.mainDriver, 15).until(EC.presence_of_element_located(
+            (By.XPATH,
+             '//html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/table/tbody')))
+        # /html/body/div[3]/window/div/div/div[4]/div/div/div[1]/div/div/div/div/div/div/table/tbody
+        trs = WebDriverWait(table, 15).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'tr')))
+        villageLink = None
+        for row in trs:
+            tds = WebDriverWait(row, 25).until(EC.presence_of_all_elements_located((By.TAG_NAME, 'td')))
+            villageName = ''
+            while villageName == '':
+                try:
+                    a = WebDriverWait(tds[0], 25).until(EC.presence_of_element_located((By.TAG_NAME, 'a')))
+                    villageName = a.text
+                    if villageName == 'Cubatão':
+                        villageLink = a
+                        print('encontrou a aldeia Sampa! Kraio')
+                except Exception as e:
+                    print('quebraria aqui a leitura do village name')
+        villageLink.click()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        try:
+            # try to get the html element
+            # slot element - /html/body/div[3]/div[2]/div[4]/div/div[1]/div[2]/div[1]
+            freeSlot = WebDriverWait(self.mainDriver, 60).until(
+                EC.presence_of_element_located((By.XPATH, "/html/body/div[3]/div[2]/div[4]/div/div[1]/div[1]/div")))
+
+            actions = ActionChains(self.mainDriver)
+            actions.move_to_element(freeSlot).perform()
+        except OSError as e:
+            error_code = e.errno
+            print("Error code:", error_code)
+            print('Erro tentando ler o segundo slot')
+        #/html/body/div[3]/div[2]/div[4]/div/div[2]/div/div/div[2]/div[2]/div[2]/span
+        remaningTime = WebDriverWait(self.mainDriver, 60).until(
+            EC.presence_of_element_located((By.XPATH, "//html/body/div[3]/div[2]/div[4]/div/div[2]/div/div/div[2]/div[2]/div[2]/span")))
+        print(remaningTime.text)
+        newRemaningTime = remaningTime.text.split(':')
+        duration_to_add = timedelta(hours=int(newRemaningTime[0]), minutes= (int(newRemaningTime[1] ) - 5), seconds=int(newRemaningTime[2])+ 5)
+        current_datetime = datetime.now()
+        new_datetime = current_datetime + duration_to_add
+        print(new_datetime)
+
+        timestamp = new_datetime.timestamp()
+        current_time = time.time()
+
+        time_difference = timestamp - current_time
+        if time_difference > 0:
+            timer = threading.Timer(time_difference, self.testBuildJob)
+            timer.start()
+
+    def testBuildJob(self):
+        print('start o job mesmo')
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        webdriver.ActionChains(self.mainDriver).send_keys(Keys.ESCAPE).perform()
+        try:
+            # try to get the html element
+            # slot element - /html/body/div[3]/div[2]/div[4]/div/div[1]/div[2]/div[1]
+            slot = WebDriverWait(self.mainDriver, 60).until(
+                EC.presence_of_element_located((By.XPATH, "//html/body/div[3]/div[2]/div[4]/div/div[2]/div/div/div[2]/div[3]/button")))
+
+            actions = ActionChains(self.mainDriver)
+            actions.move_to_element(slot).perform()
+            slot.click()
+        except OSError as e:
+            error_code = e.errno
+            print("Error code:", error_code)
+            print('Erro tentando ler o segundo slot')
+        #botao - /html/body/div[3]/div[2]/div[4]/div/div[2]/div/div/div[2]/div[3]/button
     def hasConfigMain(self):
         config = configparser.ConfigParser()
         config.read('config.ini')
@@ -180,8 +472,9 @@ class TravianBot:
         rejectCockie = None
         rejAttemp = 0
         while rejectCockie == None:
-            if rejAttemp > 2:
+            if rejAttemp == 2:
                 self.mainDriver.refresh()
+                rejAttemp = 0
             try:
                 rejectCockie = WebDriverWait(self.mainDriver, 20).until(
                     EC.presence_of_element_located((By.XPATH, '//html/body/div[1]/div[1]/div[2]/span[1]/a')))
@@ -238,16 +531,28 @@ class TravianBot:
         self.update_label(self.label_text, "Now click to enter world game")
 
         self.mainDriver.switch_to.default_content()
-        continuePlayBtn = WebDriverWait(self.mainDriver, 20).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//html/body/div[2]/div/div[4]/div[2]/div/div[2]/div/div[3]/div[3]/div/div/button')))
-        continuePlayBtn.click()
-        self.update_label(self.label_text, "Mundo de jogo clicado")
+        continueErr = True
+        continueAtmp = 0
+        try:
+            while continueErr:
+                if continueAtmp == 10:
+                    self.mainDriver.refresh()
+                    continueErr = 0
+                continuePlayBtn = WebDriverWait(self.mainDriver, 20).until(
+                    EC.presence_of_element_located(
+                        (By.XPATH, '//html/body/div[2]/div/div[4]/div[2]/div/div[2]/div/div[3]/div[3]/div/div/button')))
+                continuePlayBtn.click()
+                self.update_label(self.label_text, "Mundo de jogo clicado")
+                continueErr = False
+        except Exception as e:
+            continueAtmp += 1
+            print('Erro ao tentar clicar no Botão Continue Playing:: ' + str(continueAtmp))
+            time.sleep(3)
 
         er = True
         erAtt = 0
         while er:
-            if erAtt == 2:
+            if erAtt == 10:
                 self.mainDriver.refresh()
                 erAtt = 0
             try:
@@ -258,6 +563,7 @@ class TravianBot:
             except Exception as e:
                 erAtt += 1
                 print('Esperando cargar pagina para entrar ao village overview:: ' + str(erAtt))
+                time.sleep(3)
 
 
         self.update_label(self.label_text, "Agora abrir a tabela com as aldeias")
@@ -568,6 +874,30 @@ class MainWindow:
         #btnConfig = Button(header, text="Village Settings", fg="black").grid(row=0, column=1)
         #btnStart = Button(footer, text="Start", fg="black").grid(row=0, column=0)
         btnQuit = Button(footer, text="Quit", fg="black", command=self.quit_application).grid(row=0, column=0)
+        btnFunc = Button(footer, text="Func", fg="black", command=self.getFunc).grid(row=0, column=1)
+
+    def getFunc(self):
+        print('Initing')
+        error_flag = False  # Initialize error flag
+        attmp = 0
+        while True:
+            try:
+                if attmp == 5:
+                    break
+                with open('IA.py', 'r') as file:
+                    code = file.read()
+                    globals()['error_flag'] = error_flag
+                    exec(code, globals(), locals())  # Execute code in the current locals() namespace
+                    locals()['fun'](self.mainDriver, self.master)
+                    break
+            except OSError as e:
+                print('Deu arro no getFunc da main principal')
+                print(e)
+                print(e.errno)
+                print(e.strerror)
+                error_flag = True  # Set error flag to True
+                attmp += 1
+
 
 
     def on_select(self, event, picklist, villages):
@@ -575,16 +905,24 @@ class MainWindow:
         self.lblWoodValue.config(text = villages[selected_index].wood)
 
 class LoadingScreen:
-    def __init__(self, master, text):
+    def __init__(self, master, text, mainDriver):
         self.master = master
+        self.mainDriver = mainDriver
         self.loading_window = Toplevel(self.master)
         self.loading_window.title("Loading")
         self.loading_window.geometry("200x100")
 
         self.label = Label(self.loading_window, textvariable=text)
         self.label.pack(pady=20)
+        btnQuit = Button(self.loading_window, text="Quit", fg="black", command=self.quit_application)
+        btnQuit.pack()
     def close(self):
         self.loading_window.destroy()
+
+    def quit_application(self):
+        self.loading_window.destroy()
+        self.master.quit()
+        self.mainDriver.quit()
 class LoginWindow:
     def __init__(self, master, callback):
         self.master = master
